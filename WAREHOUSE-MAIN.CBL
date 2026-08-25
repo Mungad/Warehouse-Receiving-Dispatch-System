@@ -19,6 +19,9 @@
                RECORD KEY IS MOVEMENT-ID
                FILE STATUS IS WS-MOVEMENT-STATUS.
 
+           SELECT SORT-FILE
+               ASSIGN TO "REORDER.SRT".
+
        DATA DIVISION.
        FILE SECTION.
 
@@ -35,6 +38,17 @@
            05 MOVEMENT-REFERENCE       PIC X(15).
            05 MOVEMENT-QTY-AFTER       PIC 9(7).
 
+       SD  SORT-FILE.
+
+       01  SORT-RECORD.
+           05 SORT-SKU                PIC X(10).
+           05 SORT-DESCRIPTION        PIC X(40).
+           05 SORT-UOM                PIC X(10).
+           05 SORT-QTY                PIC 9(7).
+           05 SORT-REORDER            PIC 9(7).
+           05 SORT-LOCATION           PIC X(10).
+           05 SORT-STATUS             PIC X(12).
+
        WORKING-STORAGE SECTION.
 
        01  WS-STOCK-STATUS             PIC XX.
@@ -48,6 +62,8 @@
        01  WS-CURRENT-DATE             PIC 9(8).
        01  WS-STOCK-VALID             PIC X.
        01  WS-DISPATCH-REFERENCE      PIC X(15).
+
+       01  WS-SORT-COUNT              PIC 9(5) VALUE 0.
        
        PROCEDURE DIVISION.
 
@@ -423,13 +439,97 @@
 
            END-READ.
 
-
        P060-REORDER.
 
            DISPLAY " "
            DISPLAY "--- BELOW REORDER POINT ---"
-           DISPLAY "Function will be implemented next.".
+           DISPLAY " "
 
+           MOVE 0 TO WS-SORT-COUNT
+
+           SORT SORT-FILE
+               ASCENDING KEY SORT-LOCATION
+                             SORT-SKU
+               INPUT PROCEDURE P061-SORT-INPUT
+               OUTPUT PROCEDURE P062-SORT-OUTPUT
+
+           IF WS-SORT-COUNT = 0
+               DISPLAY "No SKUs are currently below reorder point."
+           END-IF.
+
+
+       P061-SORT-INPUT.
+
+           MOVE LOW-VALUES TO STOCK-SKU
+
+           START STOCK-FILE KEY IS NOT LESS THAN STOCK-SKU
+               INVALID KEY
+                   MOVE "10" TO WS-STOCK-STATUS
+               NOT INVALID KEY
+                   MOVE "00" TO WS-STOCK-STATUS
+           END-START
+
+           PERFORM UNTIL WS-STOCK-STATUS NOT = "00"
+
+               READ STOCK-FILE NEXT RECORD
+
+                   AT END
+                       MOVE "10" TO WS-STOCK-STATUS
+
+                   NOT AT END
+
+                       IF STOCK-QTY-ON-HAND <
+                          STOCK-REORDER-POINT
+
+                           MOVE STOCK-SKU
+                               TO SORT-SKU
+
+                           MOVE STOCK-DESCRIPTION
+                               TO SORT-DESCRIPTION
+
+                           MOVE STOCK-UOM
+                               TO SORT-UOM
+
+                           MOVE STOCK-QTY-ON-HAND
+                               TO SORT-QTY
+
+                           MOVE STOCK-REORDER-POINT
+                               TO SORT-REORDER
+
+                           MOVE STOCK-LOCATION
+                               TO SORT-LOCATION
+
+                           MOVE STOCK-STATUS
+                               TO SORT-STATUS
+
+                           RELEASE SORT-RECORD
+
+                           ADD 1 TO WS-SORT-COUNT
+
+                       END-IF
+
+               END-READ
+
+           END-PERFORM.
+
+       P062-SORT-OUTPUT.
+
+           RETURN SORT-FILE
+               AT END
+                   CONTINUE
+               NOT AT END
+
+                   DISPLAY "SKU:         " SORT-SKU
+                   DISPLAY "Description: " SORT-DESCRIPTION
+                   DISPLAY "Location:    " SORT-LOCATION
+                   DISPLAY "Quantity:    " SORT-QTY
+                   DISPLAY "Reorder At:  " SORT-REORDER
+                   DISPLAY "Status:      " SORT-STATUS
+                   DISPLAY "------------------------------------------"
+
+                   GO TO P062-SORT-OUTPUT
+
+           END-RETURN.
 
        P070-REPORT.
 
