@@ -1,0 +1,5 @@
+WAREHOUSE-MAIN
+INIT-WAREHOUSE
+*.DAT
+*.tmp
+*.bak

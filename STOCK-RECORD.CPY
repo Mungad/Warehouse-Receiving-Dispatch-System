@@ -1,0 +1,8 @@
+01 STOCK-RECORD.
+    05 STOCK-SKU              PIC X(10).
+    05 STOCK-DESCRIPTION      PIC X(40).
+    05 STOCK-UOM              PIC X(10).
+    05 STOCK-QTY-ON-HAND     PIC 9(7).
+    05 STOCK-REORDER-POINT   PIC 9(7).
+    05 STOCK-LOCATION        PIC X(10).
+    05 STOCK-STATUS          PIC X(12).
