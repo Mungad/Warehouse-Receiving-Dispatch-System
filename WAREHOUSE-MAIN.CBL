@@ -82,6 +82,7 @@
        01  WS-CALC-RECEIPTS            PIC 9(9).
        01  WS-CALC-DISPATCHES          PIC 9(9).
        01  WS-CALC-NET                 PIC S9(9).
+       01  WS-CONFIRM                  PIC X.       
        
        PROCEDURE DIVISION.
 
@@ -691,5 +692,56 @@
 
            DISPLAY " "
            DISPLAY "--- DISCONTINUE SKU ---"
-           DISPLAY "Function will be implemented next.".
 
+           DISPLAY "Enter SKU: " WITH NO ADVANCING
+           ACCEPT STOCK-SKU
+
+           READ STOCK-FILE
+
+               INVALID KEY
+                   DISPLAY "SKU not found."
+                   EXIT PARAGRAPH
+
+               NOT INVALID KEY
+                   CONTINUE
+
+           END-READ
+
+           IF STOCK-STATUS = "DISCONTINUED"
+               DISPLAY "SKU is already discontinued."
+               EXIT PARAGRAPH
+           END-IF
+
+           IF STOCK-QTY-ON-HAND NOT = 0
+               DISPLAY "Cannot discontinue SKU."
+               DISPLAY "Quantity on hand must be zero."
+               DISPLAY "Current quantity: "
+                       STOCK-QTY-ON-HAND
+               EXIT PARAGRAPH
+           END-IF
+
+           DISPLAY "SKU: " STOCK-SKU
+           DISPLAY "Description: " STOCK-DESCRIPTION
+           DISPLAY "Quantity: " STOCK-QTY-ON-HAND
+           DISPLAY " "
+           DISPLAY "Confirm discontinuation (Y/N): "
+                   WITH NO ADVANCING
+           ACCEPT WS-CONFIRM
+
+           IF WS-CONFIRM = "Y" OR WS-CONFIRM = "y"
+               MOVE "DISCONTINUED"
+                   TO STOCK-STATUS
+
+               REWRITE STOCK-RECORD
+
+                   INVALID KEY
+                       DISPLAY "Error updating SKU status."
+
+                   NOT INVALID KEY
+                       DISPLAY "SKU discontinued successfully."
+
+               END-REWRITE
+
+           ELSE
+               DISPLAY "Discontinuation cancelled."
+           END-IF.
