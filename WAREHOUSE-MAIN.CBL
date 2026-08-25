@@ -41,7 +41,12 @@
        01  WS-MOVEMENT-STATUS          PIC XX.
 
        01  WS-CHOICE                   PIC 9.
-
+       
+       01  WS-MOVEMENT-QTY             PIC 9(7).
+       01  WS-MOVEMENT-REFERENCE       PIC X(15).
+       01  WS-MOVEMENT-NUMBER          PIC 9(9) VALUE 1.
+       01  WS-CURRENT-DATE             PIC 9(8).
+       
        PROCEDURE DIVISION.
 
        P000-MAIN.
@@ -170,8 +175,93 @@
 
            DISPLAY " "
            DISPLAY "--- GOODS RECEIPT ---"
-           DISPLAY "Function will be implemented next.".
 
+           DISPLAY "Enter SKU: " WITH NO ADVANCING
+           ACCEPT STOCK-SKU
+
+           READ STOCK-FILE
+
+               INVALID KEY
+                   DISPLAY "SKU not found."
+                   EXIT PARAGRAPH
+
+           END-READ
+
+           IF STOCK-STATUS = "DISCONTINUED"
+               DISPLAY "Cannot receive stock for a discontinued SKU."
+               EXIT PARAGRAPH
+           END-IF
+
+           DISPLAY "Current quantity: "
+                   STOCK-QTY-ON-HAND
+
+           DISPLAY "Enter receipt quantity: "
+                   WITH NO ADVANCING
+           ACCEPT WS-MOVEMENT-QTY
+
+           IF WS-MOVEMENT-QTY <= 0
+               DISPLAY "Receipt quantity must be greater than zero."
+               EXIT PARAGRAPH
+           END-IF
+
+           DISPLAY "Enter GRN/reference number: "
+                   WITH NO ADVANCING
+           ACCEPT WS-MOVEMENT-REFERENCE
+
+           ADD WS-MOVEMENT-QTY
+               TO STOCK-QTY-ON-HAND
+
+           REWRITE STOCK-RECORD
+
+               INVALID KEY
+                   DISPLAY "Error updating stock."
+                   EXIT PARAGRAPH
+
+               NOT INVALID KEY
+                   CONTINUE
+
+           END-REWRITE
+
+           PERFORM P090-NEXT-ID
+
+           MOVE STOCK-SKU
+               TO MOVEMENT-SKU
+
+           MOVE "RECEIPT"
+               TO MOVEMENT-TYPE
+
+           MOVE FUNCTION CURRENT-DATE(1:8)
+               TO WS-CURRENT-DATE
+
+           MOVE WS-CURRENT-DATE
+               TO MOVEMENT-DATE
+
+           MOVE WS-MOVEMENT-QTY
+               TO MOVEMENT-QUANTITY
+
+           MOVE WS-MOVEMENT-REFERENCE
+               TO MOVEMENT-REFERENCE
+
+           MOVE STOCK-QTY-ON-HAND
+               TO MOVEMENT-QTY-AFTER
+
+           WRITE MOVEMENT-RECORD
+
+               INVALID KEY
+                   DISPLAY "Stock updated, but movement "
+                           "record could not be written."
+
+               NOT INVALID KEY
+                   DISPLAY " "
+                   DISPLAY "Receipt recorded successfully."
+                   DISPLAY "Quantity received: "
+                           WS-MOVEMENT-QTY
+                   DISPLAY "New quantity: "
+                           STOCK-QTY-ON-HAND
+                   DISPLAY "Movement ID: "
+                           MOVEMENT-ID
+
+           END-WRITE.
 
        P040-DISPATCH.
 
@@ -179,6 +269,14 @@
            DISPLAY "--- DISPATCH ---"
            DISPLAY "Function will be implemented next.".
 
+       P090-NEXT-ID.
+
+           MOVE "MOV" TO MOVEMENT-ID(1:3)
+
+           MOVE WS-MOVEMENT-NUMBER
+               TO MOVEMENT-ID(4:9)
+
+           ADD 1 TO WS-MOVEMENT-NUMBER.
 
        P050-LOOKUP.
 
