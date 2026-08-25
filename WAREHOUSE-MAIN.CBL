@@ -64,6 +64,24 @@
        01  WS-DISPATCH-REFERENCE      PIC X(15).
 
        01  WS-SORT-COUNT              PIC 9(5) VALUE 0.
+
+       01  WS-REPORT-START-DATE        PIC 9(8).
+       01  WS-REPORT-END-DATE          PIC 9(8).
+       01  WS-REPORT-PAGE              PIC 9(3) VALUE 1.
+       01  WS-REPORT-LINES             PIC 9(2) VALUE 0.
+       01  WS-REPORT-EOF               PIC X VALUE "N".
+
+       01  WS-REPORT-SKU               PIC X(10).
+       01  WS-REPORT-RECEIPTS          PIC 9(9) VALUE 0.
+       01  WS-REPORT-DISPATCHES        PIC 9(9) VALUE 0.
+       01  WS-REPORT-NET               PIC S9(9) VALUE 0.
+
+       01  WS-FIRST-SKU                PIC X VALUE "Y".
+       01  WS-HAVE-DATA                PIC X VALUE "N".
+
+       01  WS-CALC-RECEIPTS            PIC 9(9).
+       01  WS-CALC-DISPATCHES          PIC 9(9).
+       01  WS-CALC-NET                 PIC S9(9).
        
        PROCEDURE DIVISION.
 
@@ -535,8 +553,139 @@
 
            DISPLAY " "
            DISPLAY "--- STOCK MOVEMENT REPORT ---"
-           DISPLAY "Function will be implemented next."
-.
+           DISPLAY " "
+
+           DISPLAY "Enter start date (YYYYMMDD): "
+                   WITH NO ADVANCING
+           ACCEPT WS-REPORT-START-DATE
+
+           DISPLAY "Enter end date (YYYYMMDD): "
+                   WITH NO ADVANCING
+           ACCEPT WS-REPORT-END-DATE
+
+           IF WS-REPORT-START-DATE > WS-REPORT-END-DATE
+               DISPLAY "Invalid date range."
+               EXIT PARAGRAPH
+           END-IF
+
+           MOVE 1 TO WS-REPORT-PAGE
+           MOVE 0 TO WS-REPORT-LINES
+           MOVE "N" TO WS-REPORT-EOF
+           MOVE "Y" TO WS-FIRST-SKU
+           MOVE "N" TO WS-HAVE-DATA
+
+           MOVE LOW-VALUES TO MOVEMENT-ID
+
+           START MOVEMENTS-FILE KEY IS NOT LESS THAN MOVEMENT-ID
+               INVALID KEY
+                   MOVE "Y" TO WS-REPORT-EOF
+           END-START
+
+           PERFORM UNTIL WS-REPORT-EOF = "Y"
+
+               READ MOVEMENTS-FILE NEXT RECORD
+
+                   AT END
+                       MOVE "Y" TO WS-REPORT-EOF
+
+                   NOT AT END
+
+                       IF MOVEMENT-DATE >= WS-REPORT-START-DATE
+                          AND MOVEMENT-DATE <= WS-REPORT-END-DATE
+
+                           PERFORM P071-PROCESS-MOVEMENT
+
+                       END-IF
+
+               END-READ
+
+           END-PERFORM
+
+           IF WS-FIRST-SKU = "N"
+               PERFORM P073-DISPLAY-SUMMARY
+           END-IF
+
+           IF WS-HAVE-DATA = "N"
+               DISPLAY "No movements found for this date range."
+           END-IF.
+
+       P071-PROCESS-MOVEMENT.
+
+           IF WS-FIRST-SKU = "Y"
+
+               MOVE MOVEMENT-SKU
+                   TO WS-REPORT-SKU
+
+               MOVE 0 TO WS-REPORT-RECEIPTS
+               MOVE 0 TO WS-REPORT-DISPATCHES
+
+               MOVE "N" TO WS-FIRST-SKU
+
+           ELSE
+
+               IF MOVEMENT-SKU NOT = WS-REPORT-SKU
+
+                   PERFORM P073-DISPLAY-SUMMARY
+
+                   MOVE MOVEMENT-SKU
+                       TO WS-REPORT-SKU
+
+                   MOVE 0 TO WS-REPORT-RECEIPTS
+                   MOVE 0 TO WS-REPORT-DISPATCHES
+
+               END-IF
+
+           END-IF
+
+           MOVE "Y" TO WS-HAVE-DATA
+
+           IF MOVEMENT-TYPE = "RECEIPT"
+
+               ADD MOVEMENT-QUANTITY
+                   TO WS-REPORT-RECEIPTS
+
+           ELSE
+
+               IF MOVEMENT-TYPE = "DISPATCH"
+
+                   ADD MOVEMENT-QUANTITY
+                       TO WS-REPORT-DISPATCHES
+
+               END-IF
+
+           END-IF.
+
+       P073-DISPLAY-SUMMARY.
+
+           MOVE WS-REPORT-RECEIPTS
+               TO WS-CALC-RECEIPTS
+
+           MOVE WS-REPORT-DISPATCHES
+               TO WS-CALC-DISPATCHES
+
+           CALL "CALC-NET-MOVEMENT"
+               USING
+                   WS-CALC-RECEIPTS
+                   WS-CALC-DISPATCHES
+                   WS-CALC-NET
+
+           DISPLAY " "
+           DISPLAY "SKU:        " WS-REPORT-SKU
+           DISPLAY "Receipts:   " WS-REPORT-RECEIPTS
+           DISPLAY "Dispatches: " WS-REPORT-DISPATCHES
+           DISPLAY "Net Move:   " WS-CALC-NET
+           DISPLAY "------------------------------------------"
+
+           ADD 4 TO WS-REPORT-LINES
+
+           IF WS-REPORT-LINES >= 20
+               DISPLAY " "
+               DISPLAY "Page " WS-REPORT-PAGE
+               DISPLAY "Press ENTER for next page..."
+               ACCEPT WS-CHOICE
+               ADD 1 TO WS-REPORT-PAGE
+               MOVE 0 TO WS-REPORT-LINES
+           END-IF.
 
        P080-DISCONTINUE.
 

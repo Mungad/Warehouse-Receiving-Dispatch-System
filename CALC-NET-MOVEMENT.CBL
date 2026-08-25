@@ -1,0 +1,23 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. CALC-NET-MOVEMENT.
+
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+
+       01  WS-NET              PIC S9(9) VALUE 0.
+
+       LINKAGE SECTION.
+
+       01  LK-RECEIPTS          PIC 9(9).
+       01  LK-DISPATCHES        PIC 9(9).
+       01  LK-NET-MOVEMENT      PIC S9(9).
+
+       PROCEDURE DIVISION USING
+           LK-RECEIPTS
+           LK-DISPATCHES
+           LK-NET-MOVEMENT.
+
+           COMPUTE LK-NET-MOVEMENT =
+               LK-RECEIPTS - LK-DISPATCHES
+
+           GOBACK.
