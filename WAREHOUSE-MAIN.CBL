@@ -213,17 +213,6 @@
            ADD WS-MOVEMENT-QTY
                TO STOCK-QTY-ON-HAND
 
-           REWRITE STOCK-RECORD
-
-               INVALID KEY
-                   DISPLAY "Error updating stock."
-                   EXIT PARAGRAPH
-
-               NOT INVALID KEY
-                   CONTINUE
-
-           END-REWRITE
-
            PERFORM P090-NEXT-ID
 
            MOVE STOCK-SKU
@@ -252,6 +241,20 @@
                INVALID KEY
                    DISPLAY "Error writing receipt movement."
                    DISPLAY "Receipt cancelled."
+                   SUBTRACT WS-MOVEMENT-QTY
+                       FROM STOCK-QTY-ON-HAND
+                   EXIT PARAGRAPH
+
+               NOT INVALID KEY
+                   CONTINUE
+
+           END-WRITE
+
+           REWRITE STOCK-RECORD
+
+               INVALID KEY
+                   DISPLAY "Error updating stock record."
+
                NOT INVALID KEY
                    DISPLAY " "
                    DISPLAY "Receipt recorded successfully."
@@ -262,7 +265,7 @@
                    DISPLAY "Movement ID: "
                            MOVEMENT-ID
 
-           END-WRITE.
+           END-REWRITE.
 
        P040-DISPATCH.
 
