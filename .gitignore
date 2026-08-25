@@ -1,5 +1,6 @@
 WAREHOUSE-MAIN
 INIT-WAREHOUSE
 *.DAT
+*.o
 *.tmp
 *.bak

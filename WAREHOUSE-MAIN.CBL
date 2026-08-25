@@ -46,6 +46,8 @@
        01  WS-MOVEMENT-REFERENCE       PIC X(15).
        01  WS-MOVEMENT-NUMBER          PIC 9(9) VALUE 1.
        01  WS-CURRENT-DATE             PIC 9(8).
+       01  WS-STOCK-VALID             PIC X.
+       01  WS-DISPATCH-REFERENCE      PIC X(15).
        
        PROCEDURE DIVISION.
 
@@ -248,9 +250,8 @@
            WRITE MOVEMENT-RECORD
 
                INVALID KEY
-                   DISPLAY "Stock updated, but movement "
-                           "record could not be written."
-
+                   DISPLAY "Error writing receipt movement."
+                   DISPLAY "Receipt cancelled."
                NOT INVALID KEY
                    DISPLAY " "
                    DISPLAY "Receipt recorded successfully."
@@ -267,16 +268,132 @@
 
            DISPLAY " "
            DISPLAY "--- DISPATCH ---"
-           DISPLAY "Function will be implemented next.".
+
+           DISPLAY "Enter SKU: " WITH NO ADVANCING
+           ACCEPT STOCK-SKU
+
+           READ STOCK-FILE
+
+               INVALID KEY
+                   DISPLAY "SKU not found."
+                   EXIT PARAGRAPH
+
+           END-READ
+
+           IF STOCK-STATUS = "DISCONTINUED"
+               DISPLAY "Cannot dispatch a discontinued SKU."
+               EXIT PARAGRAPH
+           END-IF
+
+           DISPLAY "Current quantity: "
+                   STOCK-QTY-ON-HAND
+
+           DISPLAY "Enter dispatch quantity: "
+                   WITH NO ADVANCING
+           ACCEPT WS-MOVEMENT-QTY
+
+           IF WS-MOVEMENT-QTY <= 0
+               DISPLAY "Dispatch quantity must be greater than zero."
+               EXIT PARAGRAPH
+           END-IF
+
+           CALL "VALIDATE-STOCK"
+               USING
+                   STOCK-QTY-ON-HAND
+                   WS-MOVEMENT-QTY
+                   WS-STOCK-VALID
+
+           IF WS-STOCK-VALID = "N"
+               DISPLAY " "
+               DISPLAY "INSUFFICIENT STOCK."
+               DISPLAY "Available: "
+                       STOCK-QTY-ON-HAND
+               DISPLAY "Requested: "
+                       WS-MOVEMENT-QTY
+               EXIT PARAGRAPH
+           END-IF
+
+           DISPLAY "Enter delivery note/reference: "
+                   WITH NO ADVANCING
+           ACCEPT WS-DISPATCH-REFERENCE
+
+           SUBTRACT WS-MOVEMENT-QTY
+               FROM STOCK-QTY-ON-HAND
+
+           PERFORM P090-NEXT-ID
+
+           MOVE STOCK-SKU
+               TO MOVEMENT-SKU
+
+           MOVE "DISPATCH"
+               TO MOVEMENT-TYPE
+
+           MOVE FUNCTION CURRENT-DATE(1:8)
+               TO WS-CURRENT-DATE
+
+           MOVE WS-CURRENT-DATE
+               TO MOVEMENT-DATE
+
+           MOVE WS-MOVEMENT-QTY
+               TO MOVEMENT-QUANTITY
+
+           MOVE WS-DISPATCH-REFERENCE
+               TO MOVEMENT-REFERENCE
+
+           MOVE STOCK-QTY-ON-HAND
+               TO MOVEMENT-QTY-AFTER
+
+           WRITE MOVEMENT-RECORD
+
+               INVALID KEY
+                   DISPLAY "Error writing receipt movement."
+                   DISPLAY "Stock quantity was updated."
+                   ADD WS-MOVEMENT-QTY
+                       TO STOCK-QTY-ON-HAND
+                   EXIT PARAGRAPH
+
+               NOT INVALID KEY
+                   CONTINUE
+
+           END-WRITE
+
+           REWRITE STOCK-RECORD
+
+               INVALID KEY
+                   DISPLAY "Error updating stock record."
+
+               NOT INVALID KEY
+                   DISPLAY " "
+                   DISPLAY "Dispatch recorded successfully."
+                   DISPLAY "Quantity dispatched: "
+                           WS-MOVEMENT-QTY
+                   DISPLAY "New quantity: "
+                           STOCK-QTY-ON-HAND
+                   DISPLAY "Movement ID: "
+                           MOVEMENT-ID
+
+           END-REWRITE.
+
 
        P090-NEXT-ID.
 
-           MOVE "MOV" TO MOVEMENT-ID(1:3)
+           MOVE 1 TO WS-MOVEMENT-NUMBER
 
-           MOVE WS-MOVEMENT-NUMBER
-               TO MOVEMENT-ID(4:9)
+           PERFORM UNTIL WS-MOVEMENT-NUMBER > 999999999
 
-           ADD 1 TO WS-MOVEMENT-NUMBER.
+               MOVE "MOV" TO MOVEMENT-ID(1:3)
+
+               MOVE WS-MOVEMENT-NUMBER
+                   TO MOVEMENT-ID(4:9)
+
+               READ MOVEMENTS-FILE
+                   INVALID KEY
+                       EXIT PERFORM
+               END-READ
+
+               ADD 1 TO WS-MOVEMENT-NUMBER
+
+           END-PERFORM.
 
        P050-LOOKUP.
 
